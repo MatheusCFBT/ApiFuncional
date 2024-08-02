@@ -2,38 +2,52 @@
 using ApiFuncional.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace ApiFuncional.Controllers
 {
     [ApiController]
     [Route("api/produtos")]
-    public class ProdutosController : ControllerBase
+    public class ProdutosController(ApiDbContext dbContext) : ControllerBase
     {
-        private readonly ApiDbContext _dbContext;
-
-        public ProdutosController(ApiDbContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
-
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesDefaultResponseType]
         public async Task<ActionResult<IEnumerable<Produto>>> GetProdutos()
         {
-            return await _dbContext.Produtos.ToListAsync();
+            if(dbContext.Produtos == null) return NotFound();
+
+            return await dbContext.Produtos.ToListAsync();
         }
 
         [HttpGet("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesDefaultResponseType]
         public async Task<ActionResult<Produto>> GetProduto(int id)
         {
-            var produto = await _dbContext.Produtos.FindAsync(id);
+            if (dbContext.Produtos == null) return NotFound();
+
+            var produto = await dbContext.Produtos.FindAsync(id);
+
+            if(produto == null) return NotFound();
 
             return produto; 
         }
 
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesDefaultResponseType]
         public async Task<ActionResult<Produto>> PostProduto(Produto produto)
         {
-            if(!ModelState.IsValid)
+            if (dbContext.Produtos == null) 
+            {
+                return Problem("Erro ao criar um produto, contate o suporte");
+            }
+
+            if (!ModelState.IsValid)
             {
                 return ValidationProblem(new ValidationProblemDetails(ModelState)
                 {
@@ -41,13 +55,17 @@ namespace ApiFuncional.Controllers
                 });
             }
 
-            _dbContext.Produtos.Add(produto);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Produtos.Add(produto);
+            await dbContext.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetProduto), new { id = produto.Id }, produto);
         }
 
         [HttpPut("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesDefaultResponseType]
         public async Task<IActionResult> PutProduto(int id, Produto produto)
         {
             if (id != produto.Id) return BadRequest();
@@ -60,21 +78,49 @@ namespace ApiFuncional.Controllers
                 });
             }
 
-            _dbContext.Update(produto);
-            await _dbContext.SaveChangesAsync();
+            dbContext.Entry(produto).State = EntityState.Modified;
+
+            try
+            {
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProdudoExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
 
             return NoContent();
         }
 
         [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesDefaultResponseType]
         public async Task<IActionResult> DeleteProduto(int id)
         {
-            var produto = await _dbContext.Produtos.FindAsync(id);
+            if (dbContext.Produtos == null) return BadRequest();
 
-            _dbContext.Produtos.Remove(produto);
-            await _dbContext.SaveChangesAsync();
+            var produto = await dbContext.Produtos.FindAsync(id);
+
+            if(produto == null) return NotFound();
+
+            dbContext.Produtos.Remove(produto);
+            await dbContext.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        private bool ProdudoExists(int id)
+        {
+            return (dbContext.Produtos?.Any(e => e.Id == id)).GetValueOrDefault();
         }
     }
 }
