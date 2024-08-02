@@ -33,6 +33,14 @@ namespace ApiFuncional.Controllers
         [HttpPost]
         public async Task<ActionResult<Produto>> PostProduto(Produto produto)
         {
+            if(!ModelState.IsValid)
+            {
+                return ValidationProblem(new ValidationProblemDetails(ModelState)
+                {
+                    Title = "Um ou mais erros ocorreram!"
+                });
+            }
+
             _dbContext.Produtos.Add(produto);
             await _dbContext.SaveChangesAsync();
 
@@ -42,6 +50,16 @@ namespace ApiFuncional.Controllers
         [HttpPut("{id:int}")]
         public async Task<IActionResult> PutProduto(int id, Produto produto)
         {
+            if (id != produto.Id) return BadRequest();
+
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(new ValidationProblemDetails(ModelState)
+                {
+                    Title = "Um ou mais erros ocorreram!"
+                });
+            }
+
             _dbContext.Update(produto);
             await _dbContext.SaveChangesAsync();
 
