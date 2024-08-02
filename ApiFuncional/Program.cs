@@ -1,5 +1,6 @@
 
 using ApiFuncional.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ApiFuncional
@@ -21,6 +22,10 @@ namespace ApiFuncional
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
 
+            builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+                            .AddRoles<IdentityRole>()
+                            .AddEntityFrameworkStores<ApiDbContext>();
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -31,8 +36,9 @@ namespace ApiFuncional
 
             app.UseHttpsRedirection();
 
-            app.UseAuthorization();
+            app.UseAuthentication();
 
+            app.UseAuthorization();
 
             app.MapControllers();
 
